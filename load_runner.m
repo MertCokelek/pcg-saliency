@@ -7,9 +7,6 @@ files = dir(data_dir);
 for file_ix = 1:length(files)
     file_name = files(file_ix).name;
     if contains(file_name, '.wav')
-        file_prefix = split(file_name, '.');
-        file_prefix = file_prefix{1};
-        wav_path = strcat(data_dir, '/', file_name);
         forward(data_dir, file_name, output_dir);
     end
 
