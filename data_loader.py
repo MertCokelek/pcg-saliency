@@ -39,9 +39,9 @@ class Data_loader():
         
     
 
-#instance 
-path_demo = "../../datasets/D1/physionet.org/files/circor-heart-sound/1.0.3/training_data.csv"
-path_sig = "../../datasets/D1/physionet.org/files/circor-heart-sound/1.0.3/training_data"
-data_sample = Data_loader(path_demo, path_sig)
-d_test = data_sample.get_item(0,'TV')
-print(d_test)
+##instance 
+# path_demo = "../../datasets/D1/physionet.org/files/circor-heart-sound/1.0.3/training_data.csv"
+# path_sig = "../../datasets/D1/physionet.org/files/circor-heart-sound/1.0.3/training_data"
+# data_sample = Data_loader(path_demo, path_sig)
+# data = data_sample.get_item(0,'TV')
+# print(data)
