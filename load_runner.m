@@ -1,13 +1,20 @@
+clear all;
+close all;
+clc;
+
+%%
 proj_dir = '/home/tanjary21/Desktop/bio/project/';
 data_dir = strcat(proj_dir, '/', 'data/moodyData/physionet.org/files/circor-heart-sound/1.0.3/training_data'); % in this folder there should be .wav files
 output_dir = strcat(proj_dir, '/', 'output');
 
 files = dir(data_dir);
 
-for file_ix = 1:length(files)
+for file_ix = 1:30 %length(files)
     file_name = files(file_ix).name;
     if contains(file_name, '.wav')
-        forward(data_dir, file_name, output_dir);
+        saliency = forward(data_dir, file_name, output_dir);
+        classify(saliency(:,size(saliency,1)), file_name, data_dir)
+
     end
 
 end
@@ -15,7 +22,7 @@ end
 
 
 %%
-function forward(data_dir, file_name, output_dir)
+function saliency = forward(data_dir, file_name, output_dir)
     file_prefix = split(file_name, '.');
     file_prefix = file_prefix{1};
 
@@ -41,4 +48,19 @@ function forward(data_dir, file_name, output_dir)
     end
 
     save(output_path, 'saliency', '-v6');
+end
+
+function classify(saliency_channel, file_name, data_dir)
+    subject_id = extract_subject_id(file_name);
+    annotation_file_path = strcat(data_dir, "/", subject_id, ".txt");
+    annotation_file = readlines(annotation_file_path);
+    
+    label = split(annotation_file(11), " ");
+    label = label(2);
+end
+
+function subject_id = extract_subject_id(file_name)
+    pattern = '.' | '_';
+    file_name_parts = split(file_name, pattern );
+    subject_id = file_name_parts{1};
 end
