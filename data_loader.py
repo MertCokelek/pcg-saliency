@@ -10,8 +10,8 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 import librosa
 import librosa.display
-
 import scipy.io
+import scipy.io as sio
 from torch.utils.data import Dataset
 
 class Data_loader():
@@ -38,6 +38,7 @@ class Data_loader():
         path_root = f"{self.path_sig}/{self.subject_ids[index]}_{record_type}"
         ret['audio'] , ret['sr'] = librosa.load(f"{path_root}.wav", mono=True, sr=None)
         ret['murmur'], ret['outcome'] = self.demo_data[self.demo_data['Patient ID']==self.subject_ids[index]][['Murmur', 'Outcome']].iloc[0]
+        ret['anomaly_pred'] = sio.loadmat(f"{path_root}_saliency.mat")['saliency']
         return ret
         
     
