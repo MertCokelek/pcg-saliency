@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 import xgboost as xgb
 import numpy as np
 from sklearn.metrics import precision_score, recall_score, accuracy_score
+torch.manual_seed(0)
 
 if __name__ == '__main__':
 
