@@ -79,7 +79,7 @@ if __name__ == '__main__':
     train_size = int(0.7 * len(saliency_dataset))
     val_size = len(saliency_dataset) - train_size
     train_dataset, val_dataset = torch.utils.data.random_split(saliency_dataset, [train_size, val_size])
-    train_loader, val_loader = DataLoader(train_dataset, shuffle=True, batch_size=20), DataLoader(val_dataset, shuffle=True, batch_size=len(val_dataset))
+    train_loader, val_loader = DataLoader(train_dataset, shuffle=True, batch_size=len(train_dataset)), DataLoader(val_dataset, shuffle=True, batch_size=len(val_dataset))
 
     # data = next(iter(saliency_loader))
     # print(data['saliency']['AV'].shape)
@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
     weights = torch.Tensor([1, 3.94, 35.0]) # weights for balancing classes [0,1,2] respectively
 
-    for epoch in range(100):
+    for epoch in range(50):
        
        energy_classifier = train_epoch(train_loader, energy_classifier, optimizer, weights, args)
        val_epoch(val_loader, energy_classifier, weights, args)
