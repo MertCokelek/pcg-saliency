@@ -8,10 +8,11 @@ class Energy_Classifier(torch.nn.Module):
                                             torch.nn.Linear(10,10).float(),
                                             torch.nn.ReLU(),
                                             torch.nn.Linear(10,3).float() )
+        # self.model = torch.nn.Linear(4,3).float()
 
     def forward(self, x):
         # x will be a list of 4 saliency signals
-        x = self.compute_energies(x)
+        #x = self.compute_energies(x)
         logits = self.model(x)
         return logits
 

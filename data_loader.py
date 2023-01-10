@@ -13,6 +13,7 @@ import librosa.display
 
 import scipy.io
 from torch.utils.data import Dataset
+import torch
 
 class Data_loader():
     def __init__(self, path_demo, path_sig, encode=True):
@@ -50,8 +51,9 @@ class Data_loader():
 # print(data)
 
 class Saliency_loader(Dataset):
-    def __init__(self, path_demo, path_sal, encode=True):
+    def __init__(self, path_demo, path_sal, encode=True, energy_loader=False):
         # self.subject_id = subject_id
+        self.energy_loader=energy_loader
         self.path_sal = path_sal
         self.demo_data = pd.read_csv(path_demo) # example:~/courses/bio-sig/datasets/D1/physionet.org/files/circor-heart-sound/1.0.3/training_data.csv
        
@@ -70,20 +72,43 @@ class Saliency_loader(Dataset):
     
     def __getitem__(self, index):
         
-        try:
-            ret = {}
-            ret['subject_id'] = self.subject_ids.iloc[index]
-            
-            ret['saliencies'] = {}
-            path_root = f"{self.path_sal}/{self.subject_ids.iloc[index]}"
-            subject_AV, subject_TV, subject_MV, subject_PV = f"{path_root}_AV_saliency.mat", f"{path_root}_TV_saliency.mat", f"{path_root}_MV_saliency.mat", f"{path_root}_PV_saliency.mat"
-            subject_AV, subject_TV, subject_MV, subject_PV = scipy.io.loadmat(subject_AV), scipy.io.loadmat(subject_TV), scipy.io.loadmat(subject_MV), scipy.io.loadmat(subject_PV)
-            ret['saliencies']['AV'], ret['saliencies']['TV'], ret['saliencies']['MV'], ret['saliencies']['PV'] = subject_AV['saliency'], subject_TV['saliency'], subject_MV['saliency'], subject_PV['saliency']
-            
-            ret['murmur'], ret['outcome'] = self.demo_data[self.demo_data['Patient ID']==self.subject_ids.iloc[index]][['Murmur', 'Outcome']].iloc[0]
+        
+        ret = {}
+        ret['subject_id'] = self.subject_ids.iloc[index]
+        
+        ret['saliencies'] = {}
+        path_root = f"{self.path_sal}/{self.subject_ids.iloc[index]}"
+        subject_AV, subject_TV, subject_MV, subject_PV = f"{path_root}_AV_saliency.mat", f"{path_root}_TV_saliency.mat", f"{path_root}_MV_saliency.mat", f"{path_root}_PV_saliency.mat"
+        subject_AV, subject_TV, subject_MV, subject_PV = scipy.io.loadmat(subject_AV), scipy.io.loadmat(subject_TV), scipy.io.loadmat(subject_MV), scipy.io.loadmat(subject_PV)
+        ret['saliencies']['AV'], ret['saliencies']['TV'], ret['saliencies']['MV'], ret['saliencies']['PV'] = subject_AV['saliency'], subject_TV['saliency'], subject_MV['saliency'], subject_PV['saliency']
+        
+        ret['murmur'], ret['outcome'] = self.demo_data[self.demo_data['Patient ID']==self.subject_ids.iloc[index]][['Murmur', 'Outcome']].iloc[0]
+
+        if not self.energy_loader:
             return ret
-        except:
-            import ipdb; ipdb.set_trace()
+        else:
+            saliencies = [subject_AV['saliency'], subject_TV['saliency'], subject_MV['saliency'], subject_PV['saliency']]
+            saliencies = [ torch.Tensor(saliency) for saliency in saliencies]
+            energies = self.compute_energies(saliencies)
+            return energies, ret['murmur']
+
+    def compute_energies(self, x):
+        
+        result = []
+        for sig in x:
+            sig_energy = self.compute_energy(sig)
+            result.append(sig_energy) 
+        return torch.stack(result)
+    
+    def compute_energy(self, signal):
+        '''
+            signal is one of {AV, TV, MV, PV}
+        '''
+        signal = signal.reshape((1,-1))
+        signal = torch.nn.functional.normalize(signal)
+
+        energy = torch.abs(signal * signal).sum() / (2 * signal.shape[0])
+        return energy
 # #instance
 # from torch.utils.data import DataLoader
 # path_demo = "../data/moodyData/physionet.org/files/circor-heart-sound/1.0.3/training_data.csv"
