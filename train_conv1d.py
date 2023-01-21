@@ -50,8 +50,28 @@ precision = Precision(task='multiclass', num_classes=3)
 accuracy = Accuracy(task='multiclass', num_classes=3)
 recall = Recall(task='multiclass', num_classes=3)
 # train the model
+
+# def validation(test_data_loader= test_data_loader, model= model): 
+#     model.eval()
+#     gt_labels=[]
+#     pred_labels=[]
+#     with torch.no_grad():
+#             for subject_data in test_data_loader:
+#                 gt_label= subject_data["murmur"]
+#                 gt_labels.append(gt_label)
+#                 pred_label = model(subject_data)
+#                 # print(pred_label)
+#                 pred_labels.append(pred_label)
+                
+#             # print(pred_labels)
+#             pred_labels, gt_labels = torch.tensor(torch.concat(pred_labels)), torch.tensor(torch.concat(gt_labels))
+#             # pred_labels, gt_labels = torch.tensor(pred_labels), torch.tensor(gt_labels)
+#             acc, prec, rec = accuracy(pred_labels, gt_labels), precision(pred_labels, gt_labels), recall(pred_labels, gt_labels)
+#             wandb.log({'val accuracy': acc, 'val precision': prec, 'val recall': rec})
+
 for epochs in range(n_epochs):
     predlabels_epoch, labels_epoch = [], []
+    
     for subject_data in train_data_loader: # saliency_loader
         label = subject_data['murmur']
         # subject_AV_sal, subject_TV_sal, subject_PV_sal, subject_MV_sal, labels = subject_data['saliencies']['AV'].squeeze(0), subject_data['saliencies']['TV'].squeeze(0), subject_data['saliencies']['PV'].squeeze(0), subject_data['saliencies']['MV'].squeeze(0), subject_data['murmur']
@@ -69,21 +89,45 @@ for epochs in range(n_epochs):
     acc, prec, rec = accuracy(predlabels_epoch, labels_epoch).item(), precision(predlabels_epoch, labels_epoch).item(), recall(predlabels_epoch, labels_epoch).item()
 
     wandb.log({'train_accuracy': acc, 'train_precision': prec, 'train_recall': rec, 'train_loss': loss.item()})
-
-# validating the model  
-model.eval()
-gt_labels=[]
-pred_labels=[]
-with torch.no_grad():
+    
+    gt_labels=[]
+    pred_labels=[]
+    test_loss=0
+    with torch.no_grad():
+        model.eval()
         for subject_data in test_data_loader:
             gt_label= subject_data["murmur"]
             gt_labels.append(gt_label)
             pred_label = model(subject_data)
             # print(pred_label)
             pred_labels.append(pred_label)
-            
+            t_loss = criterion(pred_label, gt_label)
+            test_loss += t_loss.item()
         # print(pred_labels)
         pred_labels, gt_labels = torch.tensor(torch.concat(pred_labels)), torch.tensor(torch.concat(gt_labels))
         # pred_labels, gt_labels = torch.tensor(pred_labels), torch.tensor(gt_labels)
         acc, prec, rec = accuracy(pred_labels, gt_labels), precision(pred_labels, gt_labels), recall(pred_labels, gt_labels)
-        wandb.log({'val accuracy': acc, 'val precision': prec, 'val recall': rec})
+        wandb.log({'val accuracy': acc, 'val precision': prec, 'val recall': rec, 'val loss':test_loss})
+    model.train()
+#     validation(test_data_loader, model)
+
+
+# validating the model 
+# 
+# def validation(): 
+#     model.eval()
+#     gt_labels=[]
+#     pred_labels=[]
+#     with torch.no_grad():
+#             for subject_data in test_data_loader:
+#                 gt_label= subject_data["murmur"]
+#                 gt_labels.append(gt_label)
+#                 pred_label = model(subject_data)
+#                 # print(pred_label)
+#                 pred_labels.append(pred_label)
+                
+#             # print(pred_labels)
+#             pred_labels, gt_labels = torch.tensor(torch.concat(pred_labels)), torch.tensor(torch.concat(gt_labels))
+#             # pred_labels, gt_labels = torch.tensor(pred_labels), torch.tensor(gt_labels)
+#             acc, prec, rec = accuracy(pred_labels, gt_labels), precision(pred_labels, gt_labels), recall(pred_labels, gt_labels)
+#             wandb.log({'val accuracy': acc, 'val precision': prec, 'val recall': rec})
