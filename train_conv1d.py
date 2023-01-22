@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.nn.functional as F
 from classifiers import Conv_1D_classifier
-
+import matplotlib.pyplot as plt
 from torchmetrics.classification import Accuracy, Precision, Recall
 import torch.optim as optim
 import argparse
@@ -35,39 +35,22 @@ test_data_loader = DataLoader(dataset =test_set, batch_size = 1, shuffle = True 
 wandb.init(project="Elec547")
 # define the model hyperparameters
 in_channels=1
-n_depth = 1
-output_size=5
-kernel_size = 5
+n_depth = 32
+output_size=128
+kernel_size = 11
 n_classes=3
 # create the model
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = Conv_1D_classifier(in_channels,n_depth, kernel_size, output_size, n_classes)
 
 # define the loss function and optimizer
-criterion = nn.CrossEntropyLoss()
+weights= torch.Tensor([1, 3.94, 35.0]) # weights for balancing classes [0,1,2] respectively
+criterion = nn.CrossEntropyLoss(weight= weights)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 precision = Precision(task='multiclass', num_classes=3)
 accuracy = Accuracy(task='multiclass', num_classes=3)
 recall = Recall(task='multiclass', num_classes=3)
 # train the model
-
-# def validation(test_data_loader= test_data_loader, model= model): 
-#     model.eval()
-#     gt_labels=[]
-#     pred_labels=[]
-#     with torch.no_grad():
-#             for subject_data in test_data_loader:
-#                 gt_label= subject_data["murmur"]
-#                 gt_labels.append(gt_label)
-#                 pred_label = model(subject_data)
-#                 # print(pred_label)
-#                 pred_labels.append(pred_label)
-                
-#             # print(pred_labels)
-#             pred_labels, gt_labels = torch.tensor(torch.concat(pred_labels)), torch.tensor(torch.concat(gt_labels))
-#             # pred_labels, gt_labels = torch.tensor(pred_labels), torch.tensor(gt_labels)
-#             acc, prec, rec = accuracy(pred_labels, gt_labels), precision(pred_labels, gt_labels), recall(pred_labels, gt_labels)
-#             wandb.log({'val accuracy': acc, 'val precision': prec, 'val recall': rec})
 
 for epochs in range(n_epochs):
     predlabels_epoch, labels_epoch = [], []
@@ -78,56 +61,39 @@ for epochs in range(n_epochs):
         labels_epoch.append(label)
         # forward pass
         y_pred = model(subject_data) # the 4 signals are fed to the model, check the classifiers.py\Conv1D_classifier 
-        # print(y_pred)
         loss = criterion(y_pred, label)
         predlabels_epoch.append(y_pred)
         # backward pass and optimize
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        
     predlabels_epoch, labels_epoch = torch.concat(predlabels_epoch), torch.concat(labels_epoch)
     acc, prec, rec = accuracy(predlabels_epoch, labels_epoch).item(), precision(predlabels_epoch, labels_epoch).item(), recall(predlabels_epoch, labels_epoch).item()
 
     wandb.log({'train_accuracy': acc, 'train_precision': prec, 'train_recall': rec, 'train_loss': loss.item()})
-    
-    gt_labels=[]
-    pred_labels=[]
+
+
+    test_gt_labels=[]
+    test_pred_labels=[]
     test_loss=0
     with torch.no_grad():
         model.eval()
-        for subject_data in test_data_loader:
-            gt_label= subject_data["murmur"]
-            gt_labels.append(gt_label)
-            pred_label = model(subject_data)
-            # print(pred_label)
-            pred_labels.append(pred_label)
-            t_loss = criterion(pred_label, gt_label)
+        for test_subject_data in test_data_loader:
+            test_gt_label= test_subject_data["murmur"]
+            test_gt_labels.append(test_gt_label)
+            test_pred_label = model(test_subject_data)
+            test_pred_labels.append(test_pred_label)
+            t_loss = criterion(test_pred_label, test_gt_label)
             test_loss += t_loss.item()
         # print(pred_labels)
-        pred_labels, gt_labels = torch.tensor(torch.concat(pred_labels)), torch.tensor(torch.concat(gt_labels))
+        test_pred_labels, test_gt_labels = torch.tensor(torch.concat(test_pred_labels)), torch.tensor(torch.concat(test_gt_labels))
         # pred_labels, gt_labels = torch.tensor(pred_labels), torch.tensor(gt_labels)
-        acc, prec, rec = accuracy(pred_labels, gt_labels), precision(pred_labels, gt_labels), recall(pred_labels, gt_labels)
-        wandb.log({'val accuracy': acc, 'val precision': prec, 'val recall': rec, 'val loss':test_loss})
+        acc, prec, rec = accuracy(test_pred_labels, test_gt_labels), precision(test_pred_labels, test_gt_labels), recall(test_pred_labels, test_gt_labels)
+
+        data = [[s] for s in test_pred_labels.argmax(1)]
+        table = wandb.Table(data=data, columns=["labels"])
+        wandb.log({'label_histogram': wandb.plot.histogram(table, "label",
+            title="Prediction label Distribution")})
+        wandb.log({'val accuracy': acc, 'val precision': prec, 'val recall': rec, 'val loss':test_loss/len(test_data_loader)})
     model.train()
-#     validation(test_data_loader, model)
-
-
-# validating the model 
-# 
-# def validation(): 
-#     model.eval()
-#     gt_labels=[]
-#     pred_labels=[]
-#     with torch.no_grad():
-#             for subject_data in test_data_loader:
-#                 gt_label= subject_data["murmur"]
-#                 gt_labels.append(gt_label)
-#                 pred_label = model(subject_data)
-#                 # print(pred_label)
-#                 pred_labels.append(pred_label)
-                
-#             # print(pred_labels)
-#             pred_labels, gt_labels = torch.tensor(torch.concat(pred_labels)), torch.tensor(torch.concat(gt_labels))
-#             # pred_labels, gt_labels = torch.tensor(pred_labels), torch.tensor(gt_labels)
-#             acc, prec, rec = accuracy(pred_labels, gt_labels), precision(pred_labels, gt_labels), recall(pred_labels, gt_labels)
-#             wandb.log({'val accuracy': acc, 'val precision': prec, 'val recall': rec})
