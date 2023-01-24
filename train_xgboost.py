@@ -4,17 +4,25 @@ from torch.utils.data import DataLoader
 import xgboost as xgb
 import numpy as np
 from sklearn.metrics import precision_score, recall_score, accuracy_score
-torch.manual_seed(0)
+from utils import split_dataset
+#torch.manual_seed(0)
 
 if __name__ == '__main__':
 
     path_demo = "../data/moodyData/physionet.org/files/circor-heart-sound/1.0.3/training_data.csv"
+    split_dataset(path_to_csv=path_demo , train_split=0.8)
+
+    path_demo_train = "../data/moodyData/physionet.org/files/circor-heart-sound/1.0.3/train.csv"
+    path_demo_val = "../data/moodyData/physionet.org/files/circor-heart-sound/1.0.3/test.csv"
+    
     path_sig = "../data/moodyData/physionet.org/files/circor-heart-sound/1.0.3/training_data"
     path_sal = "../output"
-    saliency_dataset = Saliency_loader(path_demo, path_sal, energy_loader=True)
-    train_size = int(0.8 * len(saliency_dataset))
-    val_size = len(saliency_dataset) - train_size
-    train_dataset, val_dataset = torch.utils.data.random_split(saliency_dataset, [train_size, val_size])
+    
+    # saliency_dataset = Saliency_loader(path_demo, path_sal, energy_loader=True)
+    # train_size = int(0.8 * len(saliency_dataset))
+    # val_size = len(saliency_dataset) - train_size
+    # train_dataset, val_dataset = torch.utils.data.random_split(saliency_dataset, [train_size, val_size])
+    train_dataset, val_dataset = Saliency_loader(path_demo_train, path_sal, energy_loader=True), Saliency_loader(path_demo_val, path_sal, energy_loader=True)
     train_loader, val_loader = DataLoader(train_dataset, shuffle=True, batch_size=len(train_dataset)), DataLoader(val_dataset, shuffle=True, batch_size=len(val_dataset))
 
     train_data, train_labels = next(iter(train_loader))
