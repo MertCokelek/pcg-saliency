@@ -13,7 +13,9 @@ import librosa.display
 import scipy.io
 import scipy.io as sio
 from torch.utils.data import Dataset
+from sklearn import linear_model
 import torch
+import torch.nn.functional as F
 
 class Data_loader():
     def __init__(self, path_demo, path_sig, encode=True):
@@ -52,9 +54,11 @@ class Data_loader():
 # print(data)
 
 class Saliency_loader(Dataset):
-    def __init__(self, path_demo, path_sal, encode=True, energy_loader=False):
+    def __init__(self, path_demo, path_sal, encode=True, energy_loader=False, return_as=None):
         # self.subject_id = subject_id
-        self.energy_loader=energy_loader
+        self.energy_loader=energy_loader # for backward compatibility, I'm leaving this here. For forward compatibility, use return_as='ransac_mse'
+        self.return_as = return_as # 'ransac_mse' or None
+        
         self.path_sal = path_sal
         self.demo_data = pd.read_csv(path_demo) # example:~/courses/bio-sig/datasets/D1/physionet.org/files/circor-heart-sound/1.0.3/training_data.csv
        
@@ -87,11 +91,15 @@ class Saliency_loader(Dataset):
 
         if not self.energy_loader:
             return ret
-        else:
+        elif self.energy_loader and self.return_as is None:
             saliencies = [subject_AV['saliency'], subject_TV['saliency'], subject_MV['saliency'], subject_PV['saliency']]
             saliencies = [ torch.Tensor(saliency) for saliency in saliencies]
             energies = self.compute_energies(saliencies)
             return energies, ret['murmur']
+        elif self.return_as == 'ransac_mse':
+            saliencies = [subject_AV['saliency'], subject_TV['saliency'], subject_MV['saliency'], subject_PV['saliency']]
+            ransac_mses = self.compute_ransac_mses(saliencies)
+            return ransac_mses, ret['murmur']
 
     def compute_energies(self, x):
         
@@ -110,6 +118,29 @@ class Saliency_loader(Dataset):
 
         energy = torch.abs(signal * signal).sum() / (2 * signal.shape[0])
         return energy
+
+    def compute_ransac_mses(self, saliences_4):
+        av, tv, mv, pv = saliences_4
+        av_y, tv_y, mv_y, pv_y = av.flatten(), tv.flatten(), mv.flatten(), pv.flatten()
+        av_x, tv_x, mv_x, pv_x = av_y[:, np.newaxis], tv_y[:, np.newaxis], mv_y[:, np.newaxis], pv_y[:, np.newaxis]
+        
+        ransacs = [linear_model.RANSACRegressor(), linear_model.RANSACRegressor(), linear_model.RANSACRegressor(), linear_model.RANSACRegressor()]
+        
+        ransacs[0].fit(av_x, av_y)
+        ransacs[1].fit(tv_x, tv_y)
+        ransacs[2].fit(mv_x, mv_y)
+        ransacs[3].fit(pv_x, pv_y)
+
+        av_fit, tv_fit, mv_fit, pv_fit = ransacs[0].predict(av_x), ransacs[1].predict(tv_x), ransacs[2].predict(mv_x), ransacs[3].predict(pv_x)
+
+        mse_av = F.mse_loss(torch.Tensor(av_x).flatten(), torch.Tensor(av_fit).flatten()).flatten()
+        mse_tv = F.mse_loss(torch.Tensor(tv_x).flatten(), torch.Tensor(tv_fit).flatten()).flatten()
+        mse_mv = F.mse_loss(torch.Tensor(mv_x).flatten(), torch.Tensor(mv_fit).flatten()).flatten()
+        mse_pv = F.mse_loss(torch.Tensor(pv_x).flatten(), torch.Tensor(pv_fit).flatten()).flatten()
+
+        return torch.cat([mse_av, mse_tv, mse_mv, mse_pv])
+
+
 # #instance
 # from torch.utils.data import DataLoader
 # path_demo = "../data/moodyData/physionet.org/files/circor-heart-sound/1.0.3/training_data.csv"
